@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M Resource Studio v1.0</title>
+    
+    <link rel="icon" type="image/png" href="https://i.imgur.com/RPKLs5U.png">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Pixelify+Sans:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background-image: url('https://preview.redd.it/two-minecraft-backgrounds-i-made-first-time-using-shaders-v0-9co6s0m3me9d1.png?width=640&crop=smart&auto=webp&s=60d21155d95698ea60f7796fa021f684a37cfb7a');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+        .mc-pixel-font {
+            font-family: 'Pixelify Sans', cursive;
+        }
+        .bg-blur-overlay {
+            backdrop-filter: blur(14px) brightness(0.45);
+            -webkit-backdrop-filter: blur(14px) brightness(0.45);
+        }
+        .mc-btn {
+            position: relative;
+            border-bottom: 4px solid #111;
+            transition: all 0.1s ease;
+        }
+        .mc-btn:active {
+            transform: translateY(2px);
+            border-bottom-width: 2px;
+        }
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #3f3f46;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex items-center justify-center overflow-hidden p-4 relative select-none">
+
+    <div class="absolute inset-0 bg-blur-overlay z-0"></div>
+
+    <div class="relative z-10 w-full max-w-6xl h-[88vh] bg-black/65 border-2 border-zinc-700 rounded-xl p-6 text-white shadow-2xl flex flex-col scale-100 opacity-100 transition-all duration-500" id="mainCard">
+        
+        <div class="flex justify-between items-center border-b border-zinc-700 pb-4 mb-4">
+            <div>
+                <h1 class="text-3xl font-bold mc-pixel-font text-green-400 tracking-wider">M Resource Studio v1.0</h1>
+                <p class="text-xs text-zinc-400">Full Real-time Auto Save Client Sandbox Engine</p>
+            </div>
+            <div class="flex items-center gap-3 font-mono text-[11px]">
+                <div class="bg-zinc-900/80 px-3 py-1.5 rounded border border-zinc-700 text-zinc-400">
+                    CONSOLE STATUS: <span id="consoleStatusLog" class="text-yellow-400">AWAITING_PAYLOAD</span>
+                </div>
+                <div class="bg-zinc-900/80 px-3 py-1.5 rounded border border-zinc-700 text-zinc-400">
+                    JSON STATUS: <span id="jsonStatusTag" class="text-zinc-500">STANDBY</span>
+                </div>
+                <div class="bg-zinc-900/80 px-3 py-1.5 rounded border border-zinc-700 text-zinc-400">
+                    AUTO_SAVE: <span class="text-green-400 animate-pulse">ACTIVE</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="uploadView" class="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-zinc-600 hover:border-green-500 bg-zinc-900/30 rounded-xl p-8 text-center cursor-pointer transition-all duration-300">
+            <div class="w-16 h-16 bg-zinc-800 rounded-full flex items-center justify-center mb-4 border border-zinc-600">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+            </div>
+            <p class="font-bold text-lg text-zinc-200 mc-pixel-font">DRAG & DROP PACK (.ZIP) HERE</p>
+            <p class="text-xs text-zinc-500 mt-1">Changes are instantly compiled and cached into local memory</p>
+            <input type="file" id="fileInput" accept=".zip" class="hidden">
+        </div>
+
+        <div id="editorWorkspace" class="hidden flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 overflow-hidden">
+            
+            <div class="md:col-span-1 bg-zinc-950/80 border border-zinc-800 rounded-lg p-3 flex flex-col h-full overflow-hidden">
+                <div class="flex justify-between items-center border-b border-zinc-800 pb-2 mb-2">
+                    <h3 class="text-xs font-bold text-zinc-400 uppercase tracking-wider mc-pixel-font flex flex-col">
+                        <span>Archive Directory</span>
+                        <span id="fileCount" class="text-green-400 text-[10px]">0 FILES</span>
+                    </h3>
+                    <div class="flex gap-1">
+                        <button onclick="createNewFileNode()" title="Create File" class="px-2 py-0.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs rounded font-bold transition-colors">
+                            +
+                        </button>
+                        <button onclick="deleteActiveFileNode()" title="Delete File" class="px-2 py-0.5 bg-zinc-900 hover:bg-red-950 hover:border-red-800 border border-zinc-700 text-zinc-400 hover:text-red-400 text-xs rounded font-bold transition-colors">
+                            -
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="inlineFormRow" class="hidden mb-2 flex gap-1 animate-fadeIn">
+                    <input id="inlineFileNameInput" type="text" placeholder="assets/path/file.json" class="flex-1 bg-zinc-900 border border-zinc-700 rounded p-1 text-xs text-white focus:outline-none font-mono">
+                    <button onclick="submitInlineFileCreation()" class="px-2 bg-green-700 hover:bg-green-600 rounded text-xs font-bold">OK</button>
+                    <button onclick="cancelInlineFileCreation()" class="px-2 bg-zinc-800 hover:bg-zinc-700 rounded text-xs text-zinc-400">X</button>
+                </div>
+
+                <div id="fileList" class="flex-1 overflow-y-auto custom-scroll space-y-1 pr-1 text-xs font-mono">
+                </div>
+            </div>
+
+            <div class="md:col-span-2 bg-zinc-900/40 border border-zinc-700 rounded-lg p-4 flex flex-col h-full justify-between relative">
+                
+                <div id="noFileSelected" class="absolute inset-0 bg-zinc-950/95 rounded-lg flex flex-col items-center justify-center text-zinc-500 z-30 transition-all">
+                    <p class="mc-pixel-font text-lg text-zinc-400">WORKSPACE VACANT</p>
+                    <p class="text-xs mt-1">Select any asset file from the directory tree to start coding</p>
+                </div>
+
+                <div class="flex justify-between items-center mb-2 border-b border-zinc-800 pb-2">
+                    <span class="text-xs text-zinc-400">TARGET FILE: <span id="currentFileName" class="text-yellow-400 font-bold ml-1">None</span></span>
+                    <span id="editorModeTag" class="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded border border-zinc-700 mc-pixel-font">STANDBY</span>
+                </div>
+
+                <div class="flex-1 flex flex-col overflow-hidden relative justify-center">
+                    <textarea id="fileTextArea" class="w-full h-full bg-zinc-950 border border-zinc-800 rounded p-3 font-mono text-xs text-green-400 focus:outline-none focus:border-green-600 custom-scroll resize-none" placeholder="// Edit text freely... Changes auto-saved instantly!"></textarea>
+                </div>
+                
+                <div class="mt-4 border-t border-zinc-800 pt-4 flex flex-col gap-3 z-20">
+                    
+                    <div class="bg-zinc-950/40 border border-zinc-800 p-2 rounded">
+                        <label class="block text-[9px] text-zinc-500 uppercase font-mono tracking-wider mb-1.5">Color Format Tool (Click node to inject at cursor)</label>
+                        <div class="flex flex-wrap gap-1">
+                            <button onclick="copyColorToken('§0')" class="px-1.5 py-0.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 text-[10px] text-zinc-400 font-mono rounded">Black (§0)</button>
+                            <button onclick="copyColorToken('§1')" class="px-1.5 py-0.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 text-[10px] text-blue-500 font-mono rounded">Blue (§1)</button>
+                            <button onclick="copyColorToken('§2')" class="px-1.5 py-0.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 text-[10px] text-green-600 font-mono rounded">DarkGreen (§2)</button>
+                            <button onclick="copyColorToken('§4')" class="px-1.5 py-0.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 text-[10px] text-red-500 font-mono rounded">DarkRed (§4)</button>
+                            <button onclick="copyColorToken('§5')" class="px-1.5 py-0.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 text-[10px] text-purple-400 font-mono rounded">Purple (§5)</button>
+                            <button onclick="copyColorToken('§6')" class="px-1.5 py-0.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 text-[10px] text-yellow-600 font-mono rounded">Gold (§6)</button>
+                            <button onclick="copyColorToken('§a')" class="px-1.5 py-0.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 text-[10px] text-green-400 font-mono rounded">Green (§a)</button>
+                            <button onclick="copyColorToken('§b')" class="px-1.5 py-0.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 text-[10px] text-cyan-400 font-mono rounded">Aqua (§b)</button>
+                            <button onclick="copyColorToken('§c')" class="px-1.5 py-0.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 text-[10px] text-red-400 font-mono rounded">Red (§c)</button>
+                            <button onclick="copyColorToken('§e')" class="px-1.5 py-0.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 text-[10px] text-yellow-300 font-mono rounded">Yellow (§e)</button>
+                            <button onclick="copyColorToken('§f')" class="px-1.5 py-0.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 text-[10px] text-white font-mono rounded">White (§f)</button>
+                            <button onclick="copyColorToken('§l')" class="px-1.5 py-0.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 text-[10px] text-zinc-300 font-mono rounded font-bold">Bold (§l)</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-12 gap-3 items-end">
+                        <div class="col-span-9 grid grid-cols-3 gap-2">
+                            <div>
+                                <label class="block text-[10px] text-zinc-400 uppercase tracking-wider mb-1">Pack Directory Name</label>
+                                <input id="packNameInput" type="text" placeholder="e.g. MilOS Pack" class="w-full bg-zinc-950 border border-zinc-800 rounded p-2 text-xs text-white focus:outline-none focus:border-green-500 font-mono">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-zinc-400 uppercase tracking-wider mb-1">Pack Description (mcmeta)</label>
+                                <input id="packDescInput" type="text" placeholder="e.g. Texture Pack Mod" class="w-full bg-zinc-950 border border-zinc-800 rounded p-2 text-xs text-white focus:outline-none focus:border-green-500 font-mono">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-zinc-400 uppercase tracking-wider mb-1">Target Version Format</label>
+                                <select id="formatSelector" class="w-full bg-zinc-950 border border-zinc-800 rounded p-2 text-xs text-zinc-300 focus:outline-none focus:border-green-500 font-mono appearance-none">
+                                    <option value="61">Minecraft Auto latest [LATEST]</option>
+                                    <option value="46">Minecraft 1.21.4 (Format 46)</option>
+                                    <option value="42">Minecraft 1.21.2 - 1.21.3 (Format 42)</option>
+                                    <option value="34">Minecraft 1.21 - 1.21.1 (Format 34)</option>
+                                    <option value="32">Minecraft 1.20.5 - 1.20.6 (Format 32)</option>
+                                    <option value="22">Minecraft 1.20.3 - 1.20.4 (Format 22)</option>
+                                    <option value="18">Minecraft 1.20.2 (Format 18)</option>
+                                    <option value="15">Minecraft 1.20 - 1.20.1 (Format 15)</option>
+                                    <option value="13">Minecraft 1.19.4 (Format 13)</option>
+                                    <option value="12">Minecraft 1.19 - 1.19.3 (Format 12)</option>
+                                    <option value="9">Minecraft 1.18 - 1.18.2 (Format 9)</option>
+                                    <option value="8">Minecraft 1.17 - 1.17.1 (Format 8)</option>
+                                    <option value="6">Minecraft 1.16.2 - 1.16.5 (Format 6)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="col-span-3 flex flex-col items-center justify-end">
+                            <label class="block text-[10px] text-zinc-400 uppercase tracking-wider mb-1 text-center font-mono w-full">Pack Icon Preview</label>
+                            
+                            <div class="w-16 h-16 bg-zinc-950 border-2 border-zinc-700 rounded mb-1.5 flex items-center justify-center overflow-hidden bg-cover bg-center" id="iconDisplayBox" style="background-image: url('https://placehold.co/64x64/18181b/a1a1aa?text=None');">
+                            </div>
+
+                            <button onclick="triggerImageReplacement()" class="mc-btn w-full bg-zinc-800 hover:bg-zinc-700 text-[11px] font-bold py-1.5 px-2 rounded text-center text-zinc-200 border-t border-zinc-600 mc-pixel-font truncate">
+                                SWAP IMAGE
+                            </button>
+                            <input type="file" id="imageInput" accept="image/*" class="hidden">
+                        </div>
+                    </div>
+
+                    <div class="flex justify-center items-center mt-1">
+                        <button onclick="compileAndDownloadZip()" class="mc-btn w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3.5 rounded text-sm mc-pixel-font border-t border-green-400 shadow-[0_0_20px_rgba(34,197,94,0.4)] tracking-wider">
+                            DOWNLOAD PACK (.ZIP)
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let currentZipInstance = null;
+        let archiveFiles = {};
+        let activeFilePath = null;
+        let currentFileType = 'text'; 
+        let mcmetaPathKey = null;
+
+        // Custom Console Logger System
+        function writeConsoleLog(message, isError = false) {
+            const logElement = document.getElementById('consoleStatusLog');
+            if (logElement) {
+                logElement.innerText = message.toUpperCase().replace(/\s+/g, '_');
+                if (isError) {
+                    logElement.className = "text-red-400 animate-pulse font-bold";
+                } else {
+                    logElement.className = "text-green-400 font-bold";
+                }
+            }
+        }
+
+        // Sound FX Synthesizers
+        function triggerClickSFX() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(135, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(65, audioCtx.currentTime + 0.04);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.04);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.04);
+        }
+
+        function triggerLevelUpSFX() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const now = audioCtx.currentTime;
+            const sequence = [440, 554, 659, 880];
+            sequence.forEach((freq, idx) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(freq, now + (idx * 0.06));
+                gain.gain.setValueAtTime(0.1, now + (idx * 0.06));
+                gain.gain.exponentialRampToValueAtTime(0.01, now + (idx * 0.06) + 0.1);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now + (idx * 0.06));
+                osc.stop(now + (idx * 0.06) + 0.1);
+            });
+        }
+
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('button') || e.target.closest('#uploadView') || e.target.closest('.file-node')) {
+                triggerClickSFX();
+            }
+        });
+
+        // Drag and Drop Pipeline
+        const uploadView = document.getElementById('uploadView');
+        const fileInput = document.getElementById('fileInput');
+        const workspace = document.getElementById('editorWorkspace');
+
+        uploadView.addEventListener('click', () => fileInput.click());
+        uploadView.addEventListener('dragover', (e) => { e.preventDefault(); uploadView.classList.add('border-green-500', 'bg-zinc-800/40'); });
+        uploadView.addEventListener('dragleave', () => uploadView.classList.remove('border-green-500', 'bg-zinc-800/40'));
+        uploadView.addEventListener('drop', (e) => { e.preventDefault(); if (e.dataTransfer.files.length > 0) injectZipArchive(e.dataTransfer.files[0]); });
+        fileInput.addEventListener('change', (e) => { if (e.target.files.length > 0) injectZipArchive(e.target.files[0]); });
+
+        // Unzip Pipeline Matrix
+        async function injectZipArchive(file) {
+            if (!file.name.endsWith('.zip')) {
+                writeConsoleLog('Invalid format. Zip payloads only!', true);
+                return;
+            }
+
+            try {
+                currentZipInstance = new JSZip();
+                const data = await currentZipInstance.loadAsync(file);
+                archiveFiles = data.files;
+                mcmetaPathKey = null;
+
+                renderFileTreeIndex();
+                await extractAndRenderIconPreview();
+
+                if (mcmetaPathKey) {
+                    try {
+                        const rawMcmetaText = await archiveFiles[mcmetaPathKey].async("string");
+                        const parsedMeta = JSON.parse(rawMcmetaText);
+                        if (parsedMeta && parsedMeta.pack) {
+                            if (parsedMeta.pack.description) document.getElementById('packDescInput').value = parsedMeta.pack.description;
+                            if (parsedMeta.pack.pack_format) document.getElementById('formatSelector').value = parsedMeta.pack.pack_format;
+                        }
+                    } catch(e){}
+                }
+
+                uploadView.classList.add('hidden');
+                workspace.classList.remove('hidden');
+                triggerLevelUpSFX();
+                writeConsoleLog('Archive mounted successfully');
+
+            } catch (err) {
+                writeConsoleLog('Compile Error: ' + err.message, true);
+            }
+        }
+
+        // Live Dynamic Icon Preview Processing System
+        async function extractAndRenderIconPreview() {
+            let foundPackPngKey = null;
+            for (let path in archiveFiles) {
+                if (path.toLowerCase() === 'pack.png') {
+                    foundPackPngKey = path;
+                    break;
+                }
+            }
+            const displayBox = document.getElementById('iconDisplayBox');
+            if (foundPackPngKey) {
+                const base64Data = await archiveFiles[foundPackPngKey].async("base64");
+                displayBox.style.backgroundImage = `url('data:image/png;base64,${base64Data}')`;
+            } else {
+                displayBox.style.backgroundImage = "url('https://placehold.co/64x64/18181b/a1a1aa?text=None')";
+            }
+        }
+
+        // Render Directory list
+        function renderFileTreeIndex() {
+            const fileTree = document.getElementById('fileList');
+            fileTree.innerHTML = '';
+            let visibleCount = 0;
+
+            for (let path in archiveFiles) {
+                if (!archiveFiles[path].dir) {
+                    visibleCount++;
+                    if (path.toLowerCase().endsWith('pack.mcmeta')) mcmetaPathKey = path;
+                    if (path.toLowerCase().endsWith('pack.png') && !activeFilePath) activeFilePath = path;
+
+                    const node = document.createElement('div');
+                    node.className = 'file-node p-2 rounded cursor-pointer transition-colors flex items-center gap-2 hover:bg-zinc-800/50 text-zinc-400 hover:text-zinc-100 border border-transparent';
+                    node.dataset.path = path;
+                    node.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        <span class="truncate font-mono">${path}</span>
+                    `;
+                    node.onclick = () => routeFileView(path, node);
+                    fileTree.appendChild(node);
+                }
+            }
+            document.getElementById('fileCount').innerText = `${visibleCount} ASSETS`;
+        }
+
+        // Route File Focus Screen
+        async function routeFileView(path, domElement) {
+            if (!archiveFiles[path]) return;
+            activeFilePath = path;
+            
+            document.querySelectorAll('.file-node').forEach(n => n.classList.remove('bg-green-950/40', 'border-green-800', 'text-green-400'));
+            if (domElement) domElement.classList.add('bg-green-950/40', 'border-green-800', 'text-green-400');
+            
+            document.getElementById('currentFileName').innerText = path;
+            document.getElementById('noFileSelected').classList.add('opacity-0', 'pointer-events-none');
+
+            const isImage = path.toLowerCase().endsWith('.png') || path.toLowerCase().endsWith('.jpg') || path.toLowerCase().endsWith('.jpeg');
+
+            if (isImage) {
+                currentFileType = 'image';
+                document.getElementById('editorModeTag').innerText = "IMAGE TARGET LOCKED";
+                document.getElementById('fileTextArea').value = `// [Binary Image Asset Pinned]\n// Path: ${path}\n// Click 'SWAP IMAGE' below to overwrite this image data instantly.`;
+                document.getElementById('jsonStatusTag').innerText = "NOT TEXT";
+                document.getElementById('jsonStatusTag').className = "text-zinc-500";
+                writeConsoleLog('Locked binary image target');
+            } else {
+                currentFileType = 'text';
+                document.getElementById('editorModeTag').innerText = "TEXT CODEX";
+                const rawText = await archiveFiles[path].async("string");
+                document.getElementById('fileTextArea').value = rawText;
+                evaluateJsonSyntax(rawText, path);
+                writeConsoleLog('Opened code context buffer');
+            }
+        }
+
+        // Auto Save Input Stream Listener
+        document.getElementById('fileTextArea').addEventListener('input', function() {
+            if (!activeFilePath || !currentZipInstance || currentFileType !== 'text') return;
+            
+            const textBuffer = this.value;
+            currentZipInstance.file(activeFilePath, textBuffer);
+            evaluateJsonSyntax(textBuffer, activeFilePath);
+
+            if (activeFilePath === mcmetaPathKey) {
+                try {
+                    const parsed = JSON.parse(textBuffer);
+                    if (parsed && parsed.pack) {
+                        if (parsed.pack.description) document.getElementById('packDescInput').value = parsed.pack.description;
+                        if (parsed.pack.pack_format) document.getElementById('formatSelector').value = parsed.pack.pack_format;
+                    }
+                } catch(e){}
+            }
+            writeConsoleLog('Auto-saved buffer content');
+        });
+
+        // Real-time JSON Live Syntax Evaluator
+        function evaluateJsonSyntax(stringData, path) {
+            const statusTag = document.getElementById('jsonStatusTag');
+            if (!path.toLowerCase().endsWith('.json') && !path.toLowerCase().endsWith('.mcmeta')) {
+                statusTag.innerText = "PLAIN TEXT";
+                statusTag.className = "text-zinc-500";
+                return;
+            }
+            try {
+                JSON.parse(stringData);
+                statusTag.innerText = "VALID JSON";
+                statusTag.className = "text-green-400 font-bold";
+            } catch (err) {
+                statusTag.innerText = "SYNTAX ERROR";
+                statusTag.className = "text-red-400 font-bold animate-pulse";
+            }
+        }
+
+        // Color Token Clipboard Injection Logic
+        function copyColorToken(token) {
+            navigator.clipboard.writeText(token).then(() => {
+                const textarea = document.getElementById('fileTextArea');
+                const startPos = textarea.selectionStart;
+                const endPos = textarea.selectionEnd;
+                
+                if (document.activeElement === textarea) {
+                    const text = textarea.value;
+                    textarea.value = text.substring(0, startPos) + token + text.substring(endPos);
+                    textarea.focus();
+                    textarea.selectionStart = textarea.selectionEnd = startPos + token.length;
+                    textarea.dispatchEvent(new Event('input'));
+                }
+                writeConsoleLog(`Injected color token ${token}`);
+            });
+        }
+
+        // Inline File Input Creation Form Triggers
+        function createNewFileNode() {
+            if (!currentZipInstance) return;
+            const formRow = document.getElementById('inlineFormRow');
+            formRow.classList.remove('hidden');
+            document.getElementById('inlineFileNameInput').focus();
+            writeConsoleLog('Awaiting input path string');
+        }
+
+        // Cancel File Node Creation
+        function cancelInlineFileCreation() {
+            document.getElementById('inlineFormRow').classList.add('hidden');
+            document.getElementById('inlineFileNameInput').value = '';
+            writeConsoleLog('Creation process cancelled');
+        }
+
+        // Submit File Node Creation
+        function submitInlineFileCreation() {
+            const filename = document.getElementById('inlineFileNameInput').value.trim();
+            if (!filename) {
+                writeConsoleLog('Error: Blank string target', true);
+                return;
+            }
+
+            if (archiveFiles[filename]) {
+                writeConsoleLog('Error: Path node occupied', true);
+                return;
+            }
+
+            const defaultTemplate = filename.endsWith('.json') || filename.endsWith('.mcmeta') ? "{\n    \"pack\": {}\n}" : "";
+            currentZipInstance.file(filename, defaultTemplate);
+            archiveFiles = currentZipInstance.files;
+            
+            renderFileTreeIndex();
+            document.getElementById('inlineFormRow').classList.add('hidden');
+            document.getElementById('inlineFileNameInput').value = '';
+            
+            writeConsoleLog('Created fresh directory node');
+
+            setTimeout(() => {
+                const nodes = document.querySelectorAll('.file-node');
+                for (let n of nodes) {
+                    if (n.dataset.path === filename) {
+                        routeFileView(filename, n);
+                        break;
+                    }
+                }
+            }, 60);
+        }
+
+        // Delete Active Node Script
+        function deleteActiveFileNode() {
+            if (!activeFilePath || !currentZipInstance) {
+                writeConsoleLog('Error: Select targeted file', true);
+                return;
+            }
+
+            const deletedTarget = activeFilePath;
+            currentZipInstance.remove(deletedTarget);
+            archiveFiles = currentZipInstance.files;
+            activeFilePath = null;
+            
+            renderFileTreeIndex();
+            extractAndRenderIconPreview();
+
+            document.getElementById('noFileSelected').classList.remove('opacity-0', 'pointer-events-none');
+            document.getElementById('fileTextArea').value = "";
+            document.getElementById('currentFileName').innerText = "None";
+            writeConsoleLog(`Destroyed node: ${deletedTarget}`, true);
+        }
+
+        // Image Swapper Input Actions
+        const imageInput = document.getElementById('imageInput');
+        function triggerImageReplacement() { imageInput.click(); }
+        
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file && currentZipInstance) {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    const targetImgPath = activeFilePath && (activeFilePath.toLowerCase().endsWith('.png') || activeFilePath.toLowerCase().endsWith('.jpg')) ? activeFilePath : 'pack.png';
+                    const byteString = evt.target.result.split(',')[1];
+                    
+                    currentZipInstance.file(targetImgPath, byteString, { base64: true });
+                    archiveFiles = currentZipInstance.files;
+                    renderFileTreeIndex();
+                    extractAndRenderIconPreview();
+                    writeConsoleLog(`Swapped image: ${targetImgPath}`);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Sync Metadata Input Form (ต่อยอดบรรทัดสุดท้ายที่ขาดหายไป)
+        async function syncMetaInputForm() {
+            if (!currentZipInstance) return;
+            
+            const targetedMetaPath = mcmetaPathKey || 'pack.mcmeta';
+            let currentMetaObj = { "pack": { "pack_format": 61, "description": "" } };
+
+            try {
+                if (currentZipInstance.file(targetedMetaPath)) {
+                    const rawText = await currentZipInstance.file(targetedMetaPath).async("string");
+                    currentMetaObj = JSON.parse(rawText);
+                }
+            } catch(e){}
+
+            if(!currentMetaObj.pack) currentMetaObj.pack = {};
+            
+            currentMetaObj.pack.description = document.getElementById('packDescInput').value;
+            currentMetaObj.pack.pack_format = parseInt(document.getElementById('formatSelector').value, 10);
+
+            const updatedMetaJsonStr = JSON.stringify(currentMetaObj, null, 4);
+            currentZipInstance.file(targetedMetaPath, updatedMetaJsonStr);
+            mcmetaPathKey = targetedMetaPath;
+        }
+
+        // Compile and Export ZIP Archive Payload
+        async function compileAndDownloadZip() {
+            if (!currentZipInstance) {
+                writeConsoleLog('Error: No loaded instance package', true);
+                return;
+            }
+            try {
+                writeConsoleLog('Compiling stream buffer...');
+                await syncMetaInputForm();
+
+                const packNameInputVal = document.getElementById('packNameInput').value.trim();
+                const outputFileName = packNameInputVal ? `${packNameInputVal}.zip` : 'MilOS_ResourcePack.zip';
+
+                const contentBlob = await currentZipInstance.generateAsync({ type: "blob" });
+                const linkNode = document.createElement("a");
+                linkNode.href = URL.createObjectURL(contentBlob);
+                linkNode.download = outputFileName;
+                document.body.appendChild(linkNode);
+                linkNode.click();
+                document.body.removeChild(linkNode);
+
+                triggerLevelUpSFX();
+                writeConsoleLog('Package dispatched successfully!');
+            } catch(err) {
+                writeConsoleLog(`Export Error: ${err.message}`, true);
+            }
+        }
+    </script>
+</body>
+</html>
